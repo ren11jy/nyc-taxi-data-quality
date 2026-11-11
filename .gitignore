@@ -1,0 +1,7 @@
+.venv/
+.pip-cache/
+__pycache__/
+*.py[cod]
+data/
+reports/
+.pytest_cache/

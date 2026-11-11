@@ -1,0 +1,38 @@
+name: Validate taxi data
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Validate normal and invalid batches
+        shell: bash
+        run: |
+          python validate.py
+          if python validate.py --inject-time-error; then
+            echo 'Invalid batch unexpectedly passed'
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          import sqlite3
+
+          with open('reports/normal.json', encoding='utf-8') as file:
+              normal = json.load(file)
+          with open('reports/invalid_time.json', encoding='utf-8') as file:
+              invalid = json.load(file)
+          assert normal['success'] is True
+          assert invalid['success'] is False
+          with sqlite3.connect('data/validated_taxi.sqlite') as connection:
+              rows = connection.execute('SELECT COUNT(*) FROM validated_trips').fetchone()[0]
+          assert rows == 10_000, rows
+          PY
